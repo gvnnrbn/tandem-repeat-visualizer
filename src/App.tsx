@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import InputView from './InputView';
 import StructureView from './StructureView';
-import Visor1 from './Visor1';
+import './index.css';
 
-type ViewState = 'INPUT' | 'STRUCTURE' | 'VISOR1';
+type ViewState = 'INPUT' | 'STRUCTURE' | 'GUIDE';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('INPUT');
@@ -13,7 +13,7 @@ export default function App() {
   };
 
   const headerStyle = {
-    fontFamily: 'system-ui, -apple-system, sans-serif',
+    
     textAlign: 'center' as const,
     fontSize: '28px',
     margin: 0,
