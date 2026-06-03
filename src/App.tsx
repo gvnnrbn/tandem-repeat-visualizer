@@ -8,7 +8,6 @@ type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('INPUT');
-  const [structureData, setStructureData] = useState<any>(null);
   
   // Updated to any[] to hold the objects {af_id, uniprot, length...} instead of just strings
   const [availableChoices, setAvailableChoices] = useState<any[]>([]);
@@ -20,8 +19,7 @@ export default function App() {
     setCurrentView('CHOICES');
   };
 
-  const handleSuccess = (data: any) => {
-    setStructureData(data);
+  const handleSuccess = () => {
     setCurrentView('STRUCTURE');
   };
 
@@ -46,7 +44,7 @@ export default function App() {
 
       const result = await response.json();
       if (result.status === 'success') {
-        handleSuccess(result);
+        handleSuccess();
       }
     } catch (error) {
       console.error('Error selecting choice:', error);
