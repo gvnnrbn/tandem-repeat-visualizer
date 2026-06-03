@@ -3,8 +3,9 @@ import InputView from './InputView';
 import StructureView from './StructureView';
 import StructureSelectionView from './StructureSelectionView'; // Import the new view
 import './index.css';
+import './App.css';
 
-type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE';
+type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE' | 'LOADING';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('INPUT');
@@ -25,14 +26,11 @@ export default function App() {
 
   const handleSelectChoice = async (selectedId: string) => {
     try {
-      setCurrentView('INPUT'); // Optionally show loading state
+      setCurrentView('LOADING');
       const baseUrl = 'http://localhost:8000';
       
       const formData = new FormData();
       formData.append('text_query', selectedId);
-      
-      // Use the dynamically saved chainId from the first request
-      // (Fallback to 'A' if chainMode was 'all' and no ID was provided, to prevent backend errors)
       formData.append('chain_id', pendingConfig.chainId || 'A'); 
 
       const response = await fetch(`${baseUrl}/api/prepare-structure/text`, {
@@ -91,6 +89,24 @@ export default function App() {
             onGoStructure={() => setCurrentView('STRUCTURE')} 
             // In the future, pass structureData to your Molstar/FeatureViewer inside StructureView
           />
+        )}
+        {currentView === 'LOADING' && (
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            minHeight: '400px',
+            textAlign: 'center'
+          }}>
+            <h2 style={{ fontSize: '24px', color: '#111827' }}>
+              Processing Structure...
+            </h2>
+            <p style={{ fontSize: '18px', color: '#4b5563' }}>
+              Analyzing tandem repeats. Please wait.
+            </p>
+            <div className="loader"></div>
+          </div>
         )}
       </main>
     </div>
