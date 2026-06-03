@@ -153,8 +153,8 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
   };
 
   // --- STYLES ---
-  const formStyle = { display: 'flex', flexDirection: 'column' as const, gap: '28px' };
-  const sectionStyle = { display: 'flex', flexDirection: 'column' as const, gap: '14px' };
+  const formStyle = { display: 'flex', flexDirection: 'column' as const, gap: '5rem' };
+  const sectionStyle = { display: 'flex', flexDirection: 'column' as const, gap: '2rem' };
   const labelStyle = { fontSize: '24px', fontWeight: 700, lineHeight: 1.2, color: '#111827' };
   const textareaStyle = {
     width: '100%', minHeight: '160px', padding: '14px 16px', borderRadius: '8px',

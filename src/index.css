@@ -5,6 +5,10 @@ body{
     padding: 0;
 }
 
+form{
+    padding: 1rem 10rem;
+}
+
 input[type="radio"]{
     accent-color: #0b78e3;
 }
