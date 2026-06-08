@@ -263,7 +263,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
       <section style={sectionStyle}>
         <div style={labelStyle}>2. Select chain(s) to be searched:</div>
         <div style={radioGroupStyle}>
-          <label style={radioRowStyle}>
+          {/* <label style={radioRowStyle}>
             <input
               type="radio"
               name="chain-mode"
@@ -273,7 +273,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
               disabled={isLoading}
             />
             <span>All chains</span>
-          </label>
+          </label> */}
           <label style={radioRowStyle}>
             <input
               type="radio"
