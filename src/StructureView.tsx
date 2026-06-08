@@ -18,109 +18,100 @@ const StructureView: React.FC<StructureViewProps> = ({
   onGoHome,
 }) => {
   const molstarRef = useRef<HTMLDivElement>(null);
-  const fvRef = useRef<HTMLDivElement>(null);
-  
-  const [pfamData, setPfamData] = useState<any>(null);
-  const [siftsData, setSiftsData] = useState<any>(null);
-  const [coverageData, setCoverageData] = useState<any>(null);
-
-  const hardcodedPdbId = "2zzk";
-
-  // Effect 1: Molstar 3D rendering from local PDB string
-  useEffect(() => {
-  //   console.log("Initializing Molstar with PDB data:", pdbData);
-  //   console.log("Initializing Molstar with CHAN ID data:", chainId);
-  //   console.log("Initializing Molstar with REPEATS ID data:", repeats.length);
-    if (!molstarRef.current || !pdbData) return;
-
-    let blobUrl = "";
-
-    const initMolstar = async () => {
-      const blob = new Blob([pdbData], { type: 'text/plain' });
-      blobUrl = URL.createObjectURL(blob);
-
-      const viewer = new PDBeMolstarPlugin();
-      if (molstarRef.current) {
-        await viewer.render(molstarRef.current, {
-          customData: {
-            url: blobUrl,
-            format: 'pdb'
-          },
-          hideControls: true,
-          bgColor: { r: 255, g: 255, b: 255 }
-        });
-      }
-    };
-
-    initMolstar();
-
-    return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [pdbData]);
-
-  // // Effect 2: External repository fetching (Pfam, SIFTS, Coverage)
-  // useEffect(() => {
-  //   const fetchExternalData = async () => {
-  //     try {
-  //       const pfamRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/pfam/${hardcodedPdbId}`);
-  //       const pfamJson = await pfamRes.json();
-  //       setPfamData(pfamJson[hardcodedPdbId]);
-
-  //       const siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/isoforms/${hardcodedPdbId}`);
-  //       const siftsJson = await siftsRes.json();
-  //       setSiftsData(siftsJson[hardcodedPdbId]);
-
-  //       const coverageRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/pdb/entry/polymer_coverage/${hardcodedPdbId}/chain/${chainId}`);
-  //       const coverageJson = await coverageRes.json();
-  //       setCoverageData(coverageJson[hardcodedPdbId]);
-  //     } catch (error) {
-  //       console.error("Error fetching external repositories:", error);
-  //     }
-  //   };
-
-  //   fetchExternalData();
-  // }, []);
-
-  // // Effect 3: Amino acid sequence rendering via FeatureViewer
-  // useEffect(() => {
-  //   if (!fvRef.current) return;
-  //   fvRef.current.innerHTML = "";
-
-  //   const fv = new FeatureViewer(
-  //     `${hardcodedPdbId.toUpperCase()}_A`,
-  //     fvRef.current,
-  //     {
-  //       showAxis: true,
-  //       showSequence: true,
-  //       brushActive: true
-  //     }
-  //   );
-
-  //   // Render tandem repeats tracks
-  //   repeats.forEach((repeat, index) => {
-  //     fv.addFeature({
-  //       data: [{ start: repeat.start, end: repeat.end }],
-  //       name: repeat.desc || `Repeat Unit ${index + 1}`,
-  //       className: `repeat-track-${index}`,
-  //       color: repeat.hex
-  //     });
-  //   });
-
-  //   // Additional tracks can safely utilize pfamData, siftsData, or coverageData here
-  // }, [repeats, pfamData, siftsData, coverageData]);
-
   const ftRef = useRef<HTMLDivElement>(null);
   const pluginInstance = useRef<any>(null);
   const testpdbid = '2zzk'; // TODO: dynamic props
-  
-  // --- REACT STATE: THE SINGLE SOURCE OF TRUTH ---
   const [selectedRepeat, setSelectedRepeat] = useState<number | null>(null);
-  const [status, setStatus] = useState("Initializing viewers...");
   const [pfamFeatures, setPfamFeatures] = useState<any[]>([]);
   const [coverageFeatures, setCoverageFeatures] = useState<any[]>([]);
   const [proteinInfo, setProteinInfo] = useState({ uniprotId: '', name: '' });
   const [proteinFamilies, setProteinFamilies] = useState<string[]>([]);
+
+  const [viewerReady, setViewerReady] = useState(false);
+  // Effect 1: Molstar 3D rendering from local PDB string
+  useEffect(() => {
+    // Si ya existe la instancia o no hay PDB, no hacemos nada
+    if (!molstarRef.current || pluginInstance.current || !pdbData) return;
+    
+    const initMolstar = async () => {
+      const viewer = new PDBeMolstarPlugin();
+      
+      const blob = new Blob([pdbData], { type: 'text/plain' });
+      const pdbUrl = URL.createObjectURL(blob); // Lo mantenemos vivo para evitar ERR_FILE_NOT_FOUND
+
+      await viewer.render(molstarRef.current, {
+        customData: {
+          url: pdbUrl,
+          format: 'pdb'
+        },
+        hideControls: true,
+        bgColor: { r: 255, g: 255, b: 255 }
+      });
+      
+      pluginInstance.current = viewer;
+      setViewerReady(true);
+
+    };
+
+    initMolstar();
+
+    const handleMolstarClick = (e: any) => {
+      const eventData = e.detail;
+      if (eventData && eventData.residueNumber) {
+        const res = eventData.residueNumber;
+        const found = repeats.find(rep => res >= rep.start && res <= rep.end);
+        
+        if (found) {
+          setSelectedRepeat(found.start);
+        }
+      }
+    };
+
+    document.addEventListener('PDB.molstar.click', handleMolstarClick);
+
+    return () => {
+      document.removeEventListener('PDB.molstar.click', handleMolstarClick);
+    };
+  }, [pdbData, repeats]);
+
+  // =================================================================
+  // EFFECT 2: UPDATE MOL* COLORS WHEN STATE CHANGES (INITIAL & CLICKS)
+  // =================================================================
+  useEffect(() => {
+    if (!pluginInstance.current || repeats.length === 0 || !viewerReady) return;
+
+    const activeRepeats = repeats.filter(rep => 
+      selectedRepeat === null || rep.start === selectedRepeat
+    );
+
+    const colorData = activeRepeats.map(rep => ({
+      start_residue_number: rep.start,
+      end_residue_number: rep.end,
+      struct_asym_id: 'A',
+      color: rep.rgb,
+      focus: selectedRepeat === rep.start 
+    }));
+
+    // Función encapsulada para aplicar el color
+    const applyColors = () => {
+      try {
+        pluginInstance.current.visual.select({
+          data: colorData,
+          nonSelectedColor: { r: 240, g: 240, b: 240 }
+        });
+      } catch (e) {
+        console.warn("Molstar no estaba listo para aplicar el color aún.", e);
+      }
+    };
+
+    // 150ms delay to try coloring default
+    const timeoutId = setTimeout(applyColors, 150);
+
+    // Avoid memory leaks
+    return () => clearTimeout(timeoutId);
+
+  }, [selectedRepeat, repeats, viewerReady]);
+
 
   
     // =================================================================
@@ -136,17 +127,15 @@ const StructureView: React.FC<StructureViewProps> = ({
 
         const pfamData = json[pdbId].Pfam;
         const features: any[] = [];
-        const uniqueFamilies = new Set<string>(); // Usamos Set para evitar familias duplicadas
+        const uniqueFamilies = new Set<string>();
         for (const id in pfamData) {
           const domain = pfamData[id];
-          // Filtrado estricto por Cadena
+          // Filtered by chain
           const validMappings = domain.mappings.filter((m: any) => m.chain_id === chainId);
 
           if (validMappings.length > 0) {
-            // Si la cadena tiene este dominio, agregamos su descripción general a las familias
             uniqueFamilies.add(domain.description);
 
-            // Mapeamos cada aparición individual para el FeatureViewer
             validMappings.forEach((m: any) => {
               features.push({
                 x: m.start.residue_number,
@@ -210,25 +199,6 @@ const StructureView: React.FC<StructureViewProps> = ({
     fetchData();
   }, []);
 
-  // =================================================================
-  // EFFECT: UPDATE MOL* COLORS WHEN STATE CHANGES
-  // =================================================================
-  useEffect(() => {
-    if (!pluginInstance.current) return;
-
-    const colorData = repeats.map(rep => ({
-      start_residue_number: rep.start,
-      end_residue_number: rep.end,
-      struct_asym_id: 'A',
-      color: rep.rgb,
-      focus: selectedRepeat === rep.start 
-    }));
-
-    pluginInstance.current.visual.select({
-      data: colorData,
-      nonSelectedColor: { r: 240, g: 240, b: 240 }
-    });
-  }, [selectedRepeat]);
 
   // =================================================================
   // EFFECT 3: CONTROL FEATURE VIEWER VIA REACT STATE
@@ -296,15 +266,31 @@ const StructureView: React.FC<StructureViewProps> = ({
       }
     }
 
+    // Behavior when selecting and deselecting a feature
     ft.onFeatureSelected((event: any) => {
       const { start, end } = event.detail;
-      setStatus(`Sequence Click: ${start} - ${end}. Focusing 3D...`);
       setSelectedRepeat(start);
     });
+
+    // ft.onFeatureDeselected(() => {
+    //   console.log(`[FeatureViewer Event] Track deselected. Restoring all colors...`);
+    //   setSelectedRepeat(null); // Restarting effect 2 to recolor everything
+    // });
 
     return () => clearTimeout(zoomTimeout);
 
   }, [selectedRepeat, pfamFeatures, coverageFeatures]);
+
+  const handleResetView = () => {
+    // Trigger the recoloring of repeats
+    setSelectedRepeat(null);
+
+    // PDBe wrapper API to reset zoom, center and clipping planes
+    if (pluginInstance.current) {
+      pluginInstance.current.visual.reset({ camera: true });
+    }
+  };
+  
 
   return (<>
     <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -356,9 +342,14 @@ const StructureView: React.FC<StructureViewProps> = ({
             
           </div>
         </div>
-        <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>action1</button>
-        <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>action1</button>
-        <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>action1</button>
+        <div style={{display: 'flex', flexDirection:'row', gap:'1rem'}}>
+          <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>action1</button>
+          <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>action1</button>
+          <button 
+              onClick={handleResetView}
+              >Reset View</button>
+
+        </div>
       </div>
     </div>
     <div style={{ border: '1px solid #ccc', padding: '0px 10px', height: '100%', borderRadius: '8px', background: 'white',flex: 1, overflowY: 'auto' }}>
