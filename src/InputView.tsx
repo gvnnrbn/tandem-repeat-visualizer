@@ -76,8 +76,8 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
       if (selectedFile) {
         // Handle physical file upload using FormData
         const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('chain_mode', chainMode);
+        formData.append('file_upload', selectedFile);
+        // formData.append('chain_mode', chainMode);
         if (chainMode === 'single') formData.append('chain_id', chainId);
 
         response = await fetch(`${baseUrl}/api/prepare-structure/file`, {
@@ -125,6 +125,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
 
   const handleProteinStructureChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setProteinStructure(e.target.value);
+    setError(null);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -143,25 +144,27 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
 
   const handleChainIdChange = (e: ChangeEvent<HTMLInputElement>) => {
     setChainId(e.target.value.toUpperCase());
+    setError(null);
   };
 
   const handleChainModeChange = (mode: 'all' | 'single') => {
     setChainMode(mode);
+    setError(null);
     if (mode === 'all') {
       setChainId('');
     }
   };
 
   // --- STYLES ---
-  const formStyle = { display: 'flex', flexDirection: 'column' as const, gap: '5rem' };
-  const sectionStyle = { display: 'flex', flexDirection: 'column' as const, gap: '2rem' };
-  const labelStyle = { fontSize: '24px', fontWeight: 700, lineHeight: 1.2, color: '#111827' };
+  const formStyle = { display: 'flex', flexDirection: 'column' as const, gap: '2rem' };
+  const sectionStyle = { display: 'flex', flexDirection: 'column' as const, gap: '1rem' };
+  const labelStyle = { fontSize: '20px', fontWeight: 700, lineHeight: 1.2, color: '#111827' };
   const textareaStyle = {
     width: '100%', minHeight: '160px', padding: '14px 16px', borderRadius: '8px',
     border: '1px solid #8f96a3', boxSizing: 'border-box' as const, laily: 'inherit',
     fontSize: '18px', resize: 'vertical' as const, outline: 'none', backgroundColor: '#fff',
   };
-  const helperStyle = { fontSize: '22px', fontWeight: 700, color: '#111827' };
+  const helperStyle = { fontSize: '20px', fontWeight: 700, color: '#111827' };
   const uploadButtonStyle = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'fit-content',
     minWidth: '108px', padding: '8px 18px', borderRadius: '8px', border: '1px solid #5c6f99',
@@ -170,10 +173,10 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), 0 2px 3px rgba(0,0,0,0.15)',
   };
   const radioGroupStyle = { display: 'flex', flexDirection: 'column' as const, gap: '14px' };
-  const radioRowStyle = { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '24px', color: '#111827' };
+  const radioRowStyle = { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '16px', color: '#111827' };
   const shortInputStyle = {
-    width: '76px', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid #8f96a3',
-    boxSizing: 'border-box' as const, fontFamily: 'inherit', fontSize: '18px',
+    width: '76px', height: '2rem', padding: '0 12px', borderRadius: '8px', border: '1px solid #8f96a3',
+    boxSizing: 'border-box' as const, fontFamily: 'inherit', fontSize: '16px',
     textTransform: 'uppercase' as const, backgroundColor: chainMode === 'single' ? '#fff' : '#f3f4f6', color: '#111827',
   };
   const submitButtonStyle = {
@@ -181,7 +184,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
     border: '1px solid #5c6f99', borderRadius: '8px', cursor: isLoading ? 'not-allowed' : 'pointer',
     fontSize: '17px', alignSelf: 'center' as const, fontWeight: 'bold' as const,
     minWidth: '104px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), 0 2px 3px rgba(0,0,0,0.15)',
-    opacity: isLoading ? 0.7 : 1,
+    opacity: isLoading ? 0.7 : 1, marginTop: '-10px',
   };
   const errorStyle = 
   {
@@ -203,6 +206,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
     border: '1px solid #fed7aa',
     borderRadius: '8px',
     padding: '10px 12px',
+    marginBottom: '-1rem'
   };
 
   return (
@@ -218,44 +222,41 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={helperStyle}>or upload a pdb/mmCIF/FASTA file</div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-            accept=".pdb,.cif,.fasta"
-            disabled={isLoading}
-          />
-          <button
-            type="button"
-            style={uploadButtonStyle}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-          >
-            Upload
-          </button>
-          {selectedFile && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600 }}>Selected: {selectedFile.name}</span>
-              <button
-                type="button"
-                onClick={handleRemoveFile}
-                disabled={isLoading}
-                style={{
-                  width: 'fit-content',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #9ca3af',
-                  background: '#ffffff',
-                  color: '#111827',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                Remove file
-              </button>
-            </div>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', alignItems: 'center' }}>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+              accept=".pdb,.cif,.fasta"
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              style={uploadButtonStyle}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+            >
+              Upload
+            </button>
+            {selectedFile && (
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '8px',}}>
+                <span style={{ fontSize: '12px', fontWeight: 600 }}>Selected: {selectedFile.name}</span>
+                {!isLoading && (<a
+                  onClick={handleRemoveFile}
+                  style={{
+                    color: '#dd0000',
+                    textDecoration: 'underline',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Remove file
+                </a>)}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

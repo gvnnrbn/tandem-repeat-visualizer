@@ -8,11 +8,12 @@ import './App.css';
 type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE' | 'LOADING';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>('INPUT');
+  const [currentView, setCurrentView] = useState<ViewState>('INPUT'); // temp: STRUCTURE
   
-  // Updated to any[] to hold the objects {af_id, uniprot, length...} instead of just strings
   const [availableChoices, setAvailableChoices] = useState<any[]>([]);
   const [pendingConfig, setPendingConfig] = useState({ query: '', chainId: '', chainMode: 'all' });
+
+  const [structureData, setStructureData] = useState<any>(null);
 
   const handleMultipleChoices = (options: any[], query: string, chainId: string, chainMode: string) => {
     setAvailableChoices(options);
@@ -20,7 +21,8 @@ export default function App() {
     setCurrentView('CHOICES');
   };
 
-  const handleSuccess = () => {
+  const handleSuccess = (data: any) => {
+    setStructureData(data);
     setCurrentView('STRUCTURE');
   };
 
@@ -42,7 +44,7 @@ export default function App() {
 
       const result = await response.json();
       if (result.status === 'success') {
-        handleSuccess();
+        handleSuccess(result);
       }
     } catch (error) {
       console.error('Error selecting choice:', error);
@@ -85,9 +87,10 @@ export default function App() {
         
         {currentView === 'STRUCTURE' && (
           <StructureView 
+            pdbData={structureData.pdb_found} 
+            repeats={structureData.repeats} 
+            chainId={structureData.chain_id}
             onGoHome={() => setCurrentView('INPUT')} 
-            onGoStructure={() => setCurrentView('STRUCTURE')} 
-            // In the future, pass structureData to your Molstar/FeatureViewer inside StructureView
           />
         )}
         {currentView === 'LOADING' && (

@@ -1,22 +1,115 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import { PDBeMolstarPlugin } from 'pdbe-molstar/lib';
 
 declare const FeatureViewer: any;
 
-const REPEATS = [
-  { start: 373, end: 474, desc: "Repeat Unit 1", hex: "#ff00ff", rgb: { r: 255, g: 0, b: 255 } },
-  { start: 476, end: 582, desc: "Repeat Unit 2", hex: "#00c8ff", rgb: { r: 0, g: 200, b: 255 } },
-  { start: 583, end: 693, desc: "Repeat Unit 3", hex: "#ffa500", rgb: { r: 255, g: 165, b: 0 } }
-];
-
 interface StructureViewProps {
+  pdbData: string;
+  chainId?: string;
+  repeats: any[];
   onGoHome: () => void;
-  onGoStructure: () => void;
 }
 
-const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }) => {
+const StructureView: React.FC<StructureViewProps> = ({
+  pdbData,
+  chainId,
+  repeats,
+  onGoHome,
+}) => {
   const molstarRef = useRef<HTMLDivElement>(null);
+  const fvRef = useRef<HTMLDivElement>(null);
+  
+  const [pfamData, setPfamData] = useState<any>(null);
+  const [siftsData, setSiftsData] = useState<any>(null);
+  const [coverageData, setCoverageData] = useState<any>(null);
+
+  const hardcodedPdbId = "2zzk";
+
+  // Effect 1: Molstar 3D rendering from local PDB string
+  useEffect(() => {
+  //   console.log("Initializing Molstar with PDB data:", pdbData);
+  //   console.log("Initializing Molstar with CHAN ID data:", chainId);
+  //   console.log("Initializing Molstar with REPEATS ID data:", repeats.length);
+    if (!molstarRef.current || !pdbData) return;
+
+    let blobUrl = "";
+
+    const initMolstar = async () => {
+      const blob = new Blob([pdbData], { type: 'text/plain' });
+      blobUrl = URL.createObjectURL(blob);
+
+      const viewer = new PDBeMolstarPlugin();
+      if (molstarRef.current) {
+        await viewer.render(molstarRef.current, {
+          customData: {
+            url: blobUrl,
+            format: 'pdb'
+          },
+          hideControls: true,
+          bgColor: { r: 255, g: 255, b: 255 }
+        });
+      }
+    };
+
+    initMolstar();
+
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [pdbData]);
+
+  // // Effect 2: External repository fetching (Pfam, SIFTS, Coverage)
+  // useEffect(() => {
+  //   const fetchExternalData = async () => {
+  //     try {
+  //       const pfamRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/pfam/${hardcodedPdbId}`);
+  //       const pfamJson = await pfamRes.json();
+  //       setPfamData(pfamJson[hardcodedPdbId]);
+
+  //       const siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/isoforms/${hardcodedPdbId}`);
+  //       const siftsJson = await siftsRes.json();
+  //       setSiftsData(siftsJson[hardcodedPdbId]);
+
+  //       const coverageRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/pdb/entry/polymer_coverage/${hardcodedPdbId}/chain/${chainId}`);
+  //       const coverageJson = await coverageRes.json();
+  //       setCoverageData(coverageJson[hardcodedPdbId]);
+  //     } catch (error) {
+  //       console.error("Error fetching external repositories:", error);
+  //     }
+  //   };
+
+  //   fetchExternalData();
+  // }, []);
+
+  // // Effect 3: Amino acid sequence rendering via FeatureViewer
+  // useEffect(() => {
+  //   if (!fvRef.current) return;
+  //   fvRef.current.innerHTML = "";
+
+  //   const fv = new FeatureViewer(
+  //     `${hardcodedPdbId.toUpperCase()}_A`,
+  //     fvRef.current,
+  //     {
+  //       showAxis: true,
+  //       showSequence: true,
+  //       brushActive: true
+  //     }
+  //   );
+
+  //   // Render tandem repeats tracks
+  //   repeats.forEach((repeat, index) => {
+  //     fv.addFeature({
+  //       data: [{ start: repeat.start, end: repeat.end }],
+  //       name: repeat.desc || `Repeat Unit ${index + 1}`,
+  //       className: `repeat-track-${index}`,
+  //       color: repeat.hex
+  //     });
+  //   });
+
+  //   // Additional tracks can safely utilize pfamData, siftsData, or coverageData here
+  // }, [repeats, pfamData, siftsData, coverageData]);
+
   const ftRef = useRef<HTMLDivElement>(null);
   const pluginInstance = useRef<any>(null);
   const testpdbid = '2zzk'; // TODO: dynamic props
@@ -27,46 +120,10 @@ const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }
   const [pfamFeatures, setPfamFeatures] = useState<any[]>([]);
   const [coverageFeatures, setCoverageFeatures] = useState<any[]>([]);
   const [proteinInfo, setProteinInfo] = useState({ uniprotId: '', name: '' });
-  
-  // NUEVO ESTADO: Almacenará las familias únicas encontradas en Pfam
   const [proteinFamilies, setProteinFamilies] = useState<string[]>([]);
 
-  // =================================================================
-  // EFFECT 1: INITIALIZE MOL* (Runs ONLY ONCE)
-  // =================================================================
-  useEffect(() => {
-    const initMolstar = async () => {
-      if (!molstarRef.current || pluginInstance.current) return;
-      
-      const viewer = new PDBeMolstarPlugin();
-      await viewer.render(molstarRef.current, {
-        moleculeId: testpdbid,
-        hideControls: true,
-        bgColor: { r: 255, g: 255, b: 255 }
-      });
-      pluginInstance.current = viewer;
-
-      setStatus("Viewers ready. Click on the 3D model or the sequence!");
-
-      viewer.events.click.subscribe((event: any) => {
-        if (event && event.residueNumber) {
-          const res = event.residueNumber;
-          const found = REPEATS.find(rep => res >= rep.start && res <= rep.end);
-          
-          if (found) {
-            setStatus(`3D Click (Residue ${res}). Focusing sequence...`);
-            setSelectedRepeat(found.start);
-          } else {
-            setStatus(`Clicked outside. Resetting...`);
-            setSelectedRepeat(null);
-          }
-        }
-      });
-    };
-    initMolstar();
-  }, []);
-
-  // =================================================================
+  
+    // =================================================================
   // EFFECT: PFAM MAPPINGS REQUEST
   // =================================================================
   useEffect(() => {
@@ -159,7 +216,7 @@ const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }
   useEffect(() => {
     if (!pluginInstance.current) return;
 
-    const colorData = REPEATS.map(rep => ({
+    const colorData = repeats.map(rep => ({
       start_residue_number: rep.start,
       end_residue_number: rep.end,
       struct_asym_id: 'A',
@@ -201,7 +258,7 @@ const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }
     }
 
     ft.addFeature({
-      data: REPEATS.map(rep => {
+      data: repeats.map(rep => {
         const isSelected = selectedRepeat === rep.start;
         const isAnySelected = selectedRepeat !== null;
         
@@ -233,7 +290,7 @@ const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }
 
     let zoomTimeout: any;
     if (selectedRepeat !== null) {
-      const target = REPEATS.find(r => r.start === selectedRepeat);
+      const target = repeats.find(r => r.start === selectedRepeat);
       if (target) {
         zoomTimeout = setTimeout(() => ft.zoom(target.start, target.end), 50);
       }
@@ -250,14 +307,14 @@ const StructureView: React.FC<StructureViewProps> = ({ onGoHome, onGoStructure }
   }, [selectedRepeat, pfamFeatures, coverageFeatures]);
 
   return (<>
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-        <button 
-          onClick={onGoHome}
-          style={{ padding: '8px 16px', border: '1px solid #333', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}
-        >
-          Back
-        </button>
-      </div>
+    <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+      <button 
+        onClick={onGoHome}
+        style={{ padding: '8px 16px', border: '1px solid #333', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}
+      >
+        Back
+      </button>
+    </div>
     <div style={{display:'flex', flexDirection:'column', overflowY:'scroll'}}>
     <div style={{display: 'flex', flexDirection: 'row', gap: '10px', width: '100%', height: '50vh', fontFamily: 'sans-serif',}}>
       
