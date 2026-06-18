@@ -56,13 +56,11 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
     e.preventDefault();
 
     if (onSubmitMock) {
-      alert("onSubmitMock")
       onSubmitMock();
       return;
     }
 
     if (!onSubmitSuccess || !onSubmitMultipleChoices) {
-      alert(onSubmitSuccess + " and " + onSubmitMultipleChoices)
       return;
     }
 
