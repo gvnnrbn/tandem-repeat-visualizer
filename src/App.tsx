@@ -4,6 +4,7 @@ import StructureView from './StructureView';
 import StructureSelectionView from './StructureSelectionView'; // Import the new view
 import './index.css';
 import './App.css';
+import HomeButton from './components/HomeButton';
 
 type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE' | 'LOADING';
 
@@ -7572,8 +7573,8 @@ END                                                                             
   
   useEffect(() => {
     setStructureData({
-    protein_id: 'Q14676',
-    id_type: 'uniprot',
+    protein_id: '2zzk',
+    id_type: 'pdb',
     pdb_found: pdbData2,
     chain_id: 'A',
     length: 536,
@@ -7623,22 +7624,31 @@ END                                                                             
   };
 
   const headerStyle = {
-    textAlign: 'center' as const,
-    fontSize: '28px',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    textAlign: 'center',
+    fontSize: '16px',
     margin: 0,
-    padding: '18px 20px',
+    padding: '0 1rem',
     background: '#0b78e3',
     color: '#ffffff',
-    borderBottomLeftRadius: '16px',
-    borderBottomRightRadius: '16px',
-    letterSpacing: '0.3px',
+    borderBottomLeftRadius: '20px',
+    borderBottomRightRadius: '20px',
+    letterSpacing: '0.5px',
+    boxShadow: '0 3px 5px rgba(0, 0, 0, 0.4)',
   };
+  
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
-      <h1 style={headerStyle}>PROTEIN TANDEM REPEAT VISUALIZER</h1>
+      <div style={headerStyle}>
+        <HomeButton setCurrentView={setCurrentView} />
+        <h1 style={{flex:2}}>PROTEIN TANDEM REPEAT VISUALIZER</h1>
 
-      <main style={{ flex: 1, padding: '26px 30px 30px' }}>
+      </div>
+
+      <main style={{ flex: 1, padding: '10px 30px 30px' }}>
         {currentView === 'INPUT' && (
           <InputView 
           onSubmitMock={() =>setCurrentView('STRUCTURE')}
@@ -7665,7 +7675,6 @@ END                                                                             
             repeats={structureData.repeats} 
             chainId={structureData.chain_id}
             sequence={structureData.sequence}
-            onGoHome={() => setCurrentView('INPUT')} 
           />
         )}
         {currentView === 'LOADING' && (
