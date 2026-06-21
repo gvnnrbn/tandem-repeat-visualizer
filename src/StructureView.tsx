@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './App.css';
 // @ts-ignore
 import { PDBeMolstarPlugin } from 'pdbe-molstar/lib';
+
+import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
+import { AnimateCameraSpin } from 'molstar/lib/mol-plugin-state/animation/built-in/camera-spin';
+import { AnimateCameraRock } from 'molstar/lib/mol-plugin-state/animation/built-in/camera-rock';
 
 declare const FeatureViewer: any;
 
@@ -12,7 +17,6 @@ interface StructureViewProps {
   chainId?: string;
   repeats: any[];
   sequence: string;
-  onGoHome: () => void;
 }
 
 const StructureView: React.FC<StructureViewProps> = ({
@@ -23,7 +27,6 @@ const StructureView: React.FC<StructureViewProps> = ({
   chainId,
   repeats,
   sequence,
-  onGoHome,
 }) => {
   const molstarRef = useRef<HTMLDivElement>(null);
   const ftRef = useRef<HTMLDivElement>(null);
@@ -36,16 +39,81 @@ const StructureView: React.FC<StructureViewProps> = ({
   const [proteinFamilies, setProteinFamilies] = useState<string[]>([]);
   const [publications, setPublications] = useState<{ year: number, journal: string, pubmed_id: string }[]>([]);
   const [viewerReady, setViewerReady] = useState(false);
-  // Effect 1: Molstar 3D rendering from local PDB string
+  const [isRocking, setIsRocking] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+  
+  // Toggle Rock animation button
+  const toggleRock = () => {
+    const molstar = pluginInstance.current?.plugin; // Access native Molstar API
+    if (!molstar) return;
+
+    if (isRocking) {
+      molstar.managers.animation.stop();
+      setIsRocking(false);
+    } else {
+      // Stop spin if it's currently running to prevent conflicts
+      if (isSpinning) {
+        molstar.managers.animation.stop();
+        setIsSpinning(false);
+      }
+      molstar.managers.animation.play(AnimateCameraRock, {});
+      setIsRocking(true);
+    }
+  };
+
+  // Toggle Spin Animation button
+  const toggleSpin = () => {
+    const molstar = pluginInstance.current?.plugin; 
+    if (!molstar) return;
+
+    if (isSpinning) {
+      molstar.managers.animation.stop();
+      setIsSpinning(false);
+    } else {
+      // Stop rock if it's currently running
+      if (isRocking) {
+        molstar.managers.animation.stop();
+        setIsRocking(false);
+      }
+      molstar.managers.animation.play(AnimateCameraSpin, {});
+      setIsSpinning(true);
+    }
+  };
+
+  // Reset camera button
+  
+  const resetView = () => {
+    // Trigger the recoloring of repeats
+    setSelectedRepeat(null);
+
+    // reset zoom, center and clipping planes
+    if (pluginInstance.current) {
+      const molstar = pluginInstance.current.plugin;
+
+      // 1. Stop any ongoing animations
+      molstar.managers.animation.stop();
+      setIsRocking(false);
+      setIsSpinning(false);
+
+      // 2. PDBe wrapper API to reset zoom, center, and clipping planes
+      pluginInstance.current.visual.reset({ camera: true });
+
+      // 3. Orient Axes: Reorient the camera to a standard state using native commands
+      PluginCommands.Camera.Reset(molstar, {});
+    }
+  };
+
+  // =================================================================
+  // EFFECT 1: Molstar 3D rendering from PDB file string
+  // =================================================================
   useEffect(() => {
-    // Si ya existe la instancia o no hay PDB, no hacemos nada
     if (!molstarRef.current || pluginInstance.current || !pdbStructure) return;
     
     const initMolstar = async () => {
       const viewer = new PDBeMolstarPlugin();
       
       const blob = new Blob([pdbStructure], { type: 'text/plain' });
-      const pdbUrl = URL.createObjectURL(blob); // Lo mantenemos vivo para evitar ERR_FILE_NOT_FOUND
+      const pdbUrl = URL.createObjectURL(blob);
 
       await viewer.render(molstarRef.current, {
         customData: {
@@ -53,7 +121,7 @@ const StructureView: React.FC<StructureViewProps> = ({
           format: 'pdb'
         },
         hideControls: true,
-        hideCanvasControls: ['all'],
+        hideCanvasControls: [''],
         bgColor: { r: 255, g: 255, b: 255 }
       });
       
@@ -96,12 +164,12 @@ const StructureView: React.FC<StructureViewProps> = ({
     const colorData = activeRepeats.map(rep => ({
       start_residue_number: rep.start,
       end_residue_number: rep.end,
-      struct_asym_id: 'A',
+      // struct_asym_id: 'A',
       color: rep.rgb,
       focus: selectedRepeat === rep.start 
     }));
 
-    // Función encapsulada para aplicar el color
+    // Apply colors
     const applyColors = () => {
       try {
         pluginInstance.current.visual.select({
@@ -109,7 +177,7 @@ const StructureView: React.FC<StructureViewProps> = ({
           nonSelectedColor: { r: 240, g: 240, b: 240 }
         });
       } catch (e) {
-        console.warn("Molstar no estaba listo para aplicar el color aún.", e);
+        console.warn("Molstar is not ready yet", e);
       }
     };
 
@@ -363,27 +431,10 @@ const StructureView: React.FC<StructureViewProps> = ({
 
   }, [selectedRepeat, pfamFeatures, coverageFeatures,sequence]);
 
-  const handleResetView = () => {
-    // Trigger the recoloring of repeats
-    setSelectedRepeat(null);
-
-    // PDBe wrapper API to reset zoom, center and clipping planes
-    if (pluginInstance.current) {
-      pluginInstance.current.visual.reset({ camera: true });
-    }
-  };
   
 
   return (<>
-    <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-      <button 
-        onClick={onGoHome}
-        style={{ padding: '8px 16px', border: '1px solid #333', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}
-      >
-        Back
-      </button>
-    </div>
-    <div style={{display:'flex', flexDirection:'column', }}>
+    <div style={{display:'flex', flexDirection:'column', gap: '10px'}}>
     <div style={{display: 'flex', flexDirection: 'row', gap: '10px', width: '100%', height: '50vh', fontFamily: 'sans-serif',}}>
       
       <style>{`
@@ -410,11 +461,7 @@ const StructureView: React.FC<StructureViewProps> = ({
               <p style={{ fontSize: '0.9rem', color: '#666', marginTop: 0 }}>
                 PDB: <strong>{proteinId}</strong> {' | '}
                 UniProt: 
-                <a 
-                  href={`https://www.uniprot.org/uniprotkb/${uniprotInfo.uniprotId}`} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  style={{ marginLeft: '5px' }}
+                <a href={`https://www.uniprot.org/uniprotkb/${uniprotInfo.uniprotId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}
                 >
                   {uniprotInfo.uniprotId}
                 </a>
@@ -427,30 +474,15 @@ const StructureView: React.FC<StructureViewProps> = ({
                 PDBs: {pdbInfo.length > 0 ? (
                   pdbInfo.map((id, index) => (
                     <React.Fragment key={id}>
-                      <a 
-                        href={`https://www.rcsb.org/structure/${id}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                      >
-                        {id}
-                      </a>
+                      <a href={`https://www.rcsb.org/structure/${id}`} target="_blank" rel="noreferrer">{id}</a>
                       {index < pdbInfo.length - 1 ? ', ' : ''}
                     </React.Fragment>
                   ))
-                ) : (
-                  'None'
-                )}
+                ) : ('None')}
                 {' | '}
-                UniProt:<strong>
-                  <a 
-                    href={`https://www.uniprot.org/uniprotkb/${proteinId}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    style={{ marginLeft: '5px' }}
-                  >
+                UniProt:<strong><a href={`https://www.uniprot.org/uniprotkb/${proteinId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}>
                     {proteinId}
-                  </a>
-                </strong>
+                  </a></strong>
               </p>
             )}
 
@@ -492,9 +524,9 @@ const StructureView: React.FC<StructureViewProps> = ({
           </div>
         </div>
         <div style={{display: 'flex', flexDirection:'row', gap:'1rem'}}>
-          <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>↻ Spin</button>
-          <button style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>↔ Rock</button>
-          <button onClick={handleResetView} style={{ width: '80%', padding: '8px', cursor: 'pointer' }}>Reset View</button>
+          <button onClick={toggleSpin} className='camera-button'>{isSpinning ? '↻ Stop' : '↻ Spin'}</button>
+          <button onClick={toggleRock}className='camera-button'>{isRocking ? '↔ Stop' : '↔ Rock'}</button>
+          <button onClick={resetView} className='camera-button'>Reset View</button>
         </div>
       </div>
     </div>
