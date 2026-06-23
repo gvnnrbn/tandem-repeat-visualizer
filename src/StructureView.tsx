@@ -121,7 +121,7 @@ const StructureView: React.FC<StructureViewProps> = ({
           format: 'pdb'
         },
         hideControls: true,
-        hideCanvasControls: [''],
+        hideCanvasControls: ['all'],
         bgColor: { r: 255, g: 255, b: 255 }
       });
       
@@ -428,7 +428,7 @@ const StructureView: React.FC<StructureViewProps> = ({
       name: "TAPO Repeats",
       className: "tapo-repeats",
       type: "rect",
-      height: 32 
+      height: 36 
     });
     // PDB coverage
     if (coverageFeatures.length > 0) {
@@ -438,7 +438,7 @@ const StructureView: React.FC<StructureViewProps> = ({
         className: "pdb-coverage",
         description: "Polymer coverage (PDB)",
         type: "rect",
-        height: 18,
+        height: 20,
       });
     }
     // Pfam domains
@@ -451,7 +451,7 @@ const StructureView: React.FC<StructureViewProps> = ({
         name: "Pfam Domains",
         className: "pfam-domains",
         type: "rect",
-        height: 18
+        height: 20
       });
     }
 
@@ -495,12 +495,12 @@ const StructureView: React.FC<StructureViewProps> = ({
         <div ref={molstarRef} style={{ height: '100%', position: 'relative' }} />
       </div>
 
-      <div style={{ border: '1px solid #ccc', padding: '20px 10px', height: '100%', borderRadius: '8px', background: 'white',flex: 1, overflowY: 'auto',
+      <div style={{ border: '1px solid #ccc', padding: '20px 10px', height: '92%', borderRadius: '8px', background: 'white',flex: 1, overflowY: 'auto',
         display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'flex-start', alignItems: 'center'
        }}>
         <div style={{ width: '100%' }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
-            <h3 style={{ marginBottom: '5px' }}>
+            <h3 style={{ marginBottom: '5px', fontSize:'20px'}}>
               Structure: {uniprotInfo.name || proteinId}
             </h3>
             {/* ESCENARIO 1: PDB ID */}
