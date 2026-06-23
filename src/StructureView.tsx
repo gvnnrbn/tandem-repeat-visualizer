@@ -205,13 +205,22 @@ const StructureView: React.FC<StructureViewProps> = ({
           response  = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/pfam/${proteinId}`);
         }
         const json = await response?.json();
-        
-        const pfamData = json[proteinId].Pfam;
+        const rootData = Object.values(json)[0] as any;
+        console.log("Pfam rootdata:", rootData);
+        if (!rootData || !rootData.Pfam) {
+          console.warn(`No Pfam domains found for ${proteinId}`);
+          return;
+        }
+        const pfamData = rootData.Pfam;
+        console.log("Pfam data:", pfamData);
         const features: any[] = [];
         const uniqueFamilies = new Set<string>();
+
         for (const id in pfamData) {
           const domain = pfamData[id];
+          console.log(`Processing Pfam domain: ${id}`, domain);
           // Filtered by chain if id from PDB
+          console.log("Protein ID Type:", proteinIdType, "Chain ID:", chainId);
           if(proteinIdType === 'uniprot') {
              uniqueFamilies.add(domain.description);
              features.push({
@@ -221,6 +230,7 @@ const StructureView: React.FC<StructureViewProps> = ({
             });
           }
           else if(proteinIdType === 'pdb') {
+            console.log("filtering",domain.mappings[0].chain_id);
             const validMappings = domain.mappings.filter((m: any) => m.chain_id === chainId);
              if (validMappings.length > 0) {
                uniqueFamilies.add(domain.description);
@@ -236,7 +246,9 @@ const StructureView: React.FC<StructureViewProps> = ({
         }
         
         setPfamFeatures(features);
-        setProteinFamilies(Array.from(uniqueFamilies)); // Guardamos en el estado
+        console.log("Pfam features:", features);
+        setProteinFamilies(Array.from(uniqueFamilies));
+        console.log("Protein families:", Array.from(uniqueFamilies));
 
       } catch (error) {
         console.error("Error cargando Pfam:", error);
@@ -250,8 +262,6 @@ const StructureView: React.FC<StructureViewProps> = ({
   // =================================================================
   useEffect(() => {
     const fetchData = async () => {
-      const chainId = 'A';
-
       try {
         let siftsRes;
         let proteinData;
@@ -259,9 +269,13 @@ const StructureView: React.FC<StructureViewProps> = ({
           // All isoforms for UniProt accession
           siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/all_isoforms/${proteinId}`);
           const siftsJson = await siftsRes.json();
-          proteinData = siftsJson[proteinId].PDB;
-          setPdbInfo((prev) => Array.from(new Set([...prev, ...Object.keys(proteinData)])));
-          // Coverage not available
+          const rootData = Object.values(siftsJson)[0] as any;
+          if (rootData && rootData.PDB) {
+            proteinData = rootData.PDB;
+            setPdbInfo((prev) => Array.from(new Set([...prev, ...Object.keys(proteinData)])));
+          }
+          
+          // Coverage not available for UniProt Accesions
           const emptyCoverage = [{
             x: 1,
             y: length,
@@ -270,34 +284,64 @@ const StructureView: React.FC<StructureViewProps> = ({
           }];
           setCoverageFeatures(emptyCoverage);
           
+          
         }
         else{
           // Isoforms for PDB id
           siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/isoforms/${proteinId}`);
           const siftsJson = await siftsRes.json();
-          proteinData = siftsJson[proteinId].UniProt;
-          for (const entity in proteinData) {
-            const hasChainA = proteinData[entity].mappings.some((m: any) => m.chain_id === chainId);
-            if (hasChainA) {
-              setUniprotInfo({ 
-                uniprotId: entity, 
-                name: proteinData[entity].name 
-              });
-              break;
+          
+          const siftsRootData = Object.values(siftsJson)[0] as any;
+          
+          if (siftsRootData && siftsRootData.UniProt) {
+            const proteinData = siftsRootData.UniProt;
+            
+            // Iiterate over the dynamic keys (which are the accessions like "O15294")
+            for (const [accession, data] of Object.entries(proteinData)) {
+              const uData = data as any;
+              if (!uData || !uData.mappings) continue;
+
+              // If chainId is ALL, any mapping is valid. Otherwise, strictly match the requested chain.
+              const hasValidChain = (chainId === 'ALL' || chainId === 'all') 
+                ? true 
+                : uData.mappings.some((m: any) => m.chain_id === chainId);
+
+              if (hasValidChain) {
+                setUniprotInfo({ 
+                  uniprotId: accession, 
+                  name: uData.name || uData.identifier 
+                });
+                break; // Stop loop after finding the first valid UniProt match
+              }
             }
           }
-          // Coverage for PDB id + chain
-          const covRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/pdb/entry/polymer_coverage/${proteinId}/chain/${chainId}`);
-          const covJson = await covRes.json();
           
-          const observed = covJson[proteinId].molecules[0].chains[0].observed;
-          const covMapped = observed.map((obs: any) => ({
-            x: obs.start.residue_number,
-            y: obs.end.residue_number,
-            description: `Author numbering: ${obs.start.author_residue_number}-${obs.end.author_residue_number}`,
-            color: "#2ecc71"
-          }));
-          setCoverageFeatures(covMapped);
+          // Coverage for PDB id + chain
+          // Only fetch coverage if a specific chain is selected. PDBe coverage endpoint fails on 'ALL'
+          if (chainId !== 'ALL' && chainId !== 'all') {
+            const covRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/pdb/entry/polymer_coverage/${proteinId}/chain/${chainId}`);
+            const covJson = await covRes.json();
+            
+            const covRootData = Object.values(covJson)[0] as any;
+            
+            if (covRootData && covRootData.molecules && covRootData.molecules[0].chains[0].observed) {
+              const observed = covRootData.molecules[0].chains[0].observed;
+              const covMapped = observed.map((obs: any) => ({
+                x: obs.start.residue_number,
+                y: obs.end.residue_number,
+                description: `Author numbering: ${obs.start.author_residue_number}-${obs.end.author_residue_number}`,
+                color: "#2ecc71"
+              }));
+              setCoverageFeatures(covMapped);
+            } else {
+              setCoverageFeatures([]);
+            }
+          } else {
+             // Fallback for 'ALL' chains to avoid crashing the polymer coverage endpoint
+             setCoverageFeatures([{
+               x: 1, y: length, description: "Coverage visualization requires a single specific chain", color: "#bdc3c7"
+             }]);
+          }
         }
 
         // Publications
@@ -308,24 +352,24 @@ const StructureView: React.FC<StructureViewProps> = ({
         try {
           const response = await fetch(url);
           const data = await response.json();
-          // Access the main data object using the provided ID
-          const entry = data[proteinId]; 
+          const entry = Object.values(data)[0] as any; 
           let rawList: any[] = [];
 
-          if (proteinIdType === 'pdb') {
-            // PDB entries are simple arrays
-            rawList = entry || [];
-          } else {
-            // UniProt entries: Flatten every category containing "Articles"
-            const sources = [
-              entry?.primary_citation?.Articles,
-              entry?.appears_without_citation?.Articles,
-              entry?.cited_by?.Articles,
-              entry?.uniprot_publications?.Articles
-            ];
-            rawList = sources.flat().filter(Boolean);
+          if (entry) {
+            if (proteinIdType === 'pdb') {
+              // PDB entries are simple arrays
+              rawList = Array.isArray(entry) ? entry : [];
+            } else {
+              // UniProt entries: Flatten every category containing "Articles"
+              const sources = [
+                entry?.primary_citation?.Articles,
+                entry?.appears_without_citation?.Articles,
+                entry?.cited_by?.Articles,
+                entry?.uniprot_publications?.Articles
+              ];
+              rawList = sources.flat().filter(Boolean);
+            }
           }
-
           // Normalize and sort
           const processed = rawList
             .map(pub => {
@@ -346,8 +390,10 @@ const StructureView: React.FC<StructureViewProps> = ({
         console.error("Error fetching metadata:", e);
       }
     };
-    fetchData();
-  }, []);
+    if (proteinId && proteinIdType) {
+       fetchData();
+    }
+  }, [proteinId, proteinIdType, length]);
 
 
   // =================================================================
@@ -362,12 +408,11 @@ const StructureView: React.FC<StructureViewProps> = ({
     var options = {
       showAxis: true, showSequence: true,
       brushActive: true, toolbar:true, 
-      bubbleHelp: true, zoomMax:30 
+      bubbleHelp: false, zoomMax:30 
     };
     const ft = new FeatureViewer(sequence, "#fv-container", options);
 
-    
-
+    // TAPO repeats
     ft.addFeature({
       data: repeats.map(rep => {
         const isSelected = selectedRepeat === rep.start;
@@ -385,16 +430,18 @@ const StructureView: React.FC<StructureViewProps> = ({
       type: "rect",
       height: 32 
     });
+    // PDB coverage
     if (coverageFeatures.length > 0) {
-          ft.addFeature({
-            data: coverageFeatures,
-            name: "PDB Coverage",
-            className: "pdb-coverage",
-            description: "Polymer coverage (PDB)",
-            type: "rect",
-            height: 18,
-          });
-        }
+      ft.addFeature({
+        data: coverageFeatures,
+        name: "PDB Coverage",
+        className: "pdb-coverage",
+        description: "Polymer coverage (PDB)",
+        type: "rect",
+        height: 18,
+      });
+    }
+    // Pfam domains
     if (pfamFeatures.length > 0) {
       ft.addFeature({
         data: pfamFeatures.map(f => ({
@@ -459,7 +506,7 @@ const StructureView: React.FC<StructureViewProps> = ({
             {/* ESCENARIO 1: PDB ID */}
             {proteinIdType === 'pdb' && (
               <p style={{ fontSize: '0.9rem', color: '#666', marginTop: 0 }}>
-                PDB: <strong>{proteinId}</strong> {' | '}
+                PDB: <a href={`https://www.rcsb.org/structure/${proteinId}`} target="_blank" rel="noreferrer">{proteinId}</a>{' | '}
                 UniProt: 
                 <a href={`https://www.uniprot.org/uniprotkb/${uniprotInfo.uniprotId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}
                 >
@@ -496,15 +543,17 @@ const StructureView: React.FC<StructureViewProps> = ({
               </div>
             )}
             {/* --- PUBLICATIONS --- */}
-            {publications.length > 0 && (
+            {
               <div style={{ margin: '15px 0', padding: '10px', backgroundColor: '#F2F2F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
                 <strong style={{ fontSize: '0.85rem', color: '#535353', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
                   Literature Mentions
                 </strong>
-                <p style={{ fontSize: '0.80rem', color: '#535353', marginBottom: '8px' }}>
+                {publications.length > 0 ? <p style={{ fontSize: '0.80rem', color: '#535353', marginBottom: '8px' }}>
                   Latest 3 articles citing the primary publication (Source: Europe PMC)
-                </p>
-                <div style={{ fontSize: '0.80rem', color: '#535353', fontWeight: 500, marginLeft: '100px' }}>
+                </p> : <p>
+                  No publications found.
+                </p>}
+                {publications.length > 0 &&(<div style={{ fontSize: '0.80rem', color: '#535353', fontWeight: 500, marginLeft: '100px' }}>
                   {publications.map((pub) => (
                     <p key={pub.pubmed_id} style={{ margin: '2px 0', textAlign: 'left' }}>
                       • {pub.year} | Journal: {pub.journal}{' | '}
@@ -517,9 +566,9 @@ const StructureView: React.FC<StructureViewProps> = ({
                       </a>
                     </p>
                   ))}
-                </div>
+                </div>)}
               </div>
-            )}
+            }
             
           </div>
         </div>

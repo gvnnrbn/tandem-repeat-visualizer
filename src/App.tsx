@@ -5,16 +5,21 @@ import StructureSelectionView from './StructureSelectionView'; // Import the new
 import './index.css';
 import './App.css';
 import HomeButton from './components/HomeButton';
+import { LoadingView } from './components/LoadingView';
 
-type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'GUIDE' | 'LOADING';
+type ViewState = 'INPUT' | 'STRUCTURE' | 'CHOICES' | 'LOADING' | 'ERROR_VIEW';
+interface ErrorState {
+  type: 'NOT_FOUND' | 'NO_REPEATS' | 'SERVER_ERROR';
+  message: string;
+}
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>('INPUT'); // temp: STRUCTURE
-  
+  const [currentView, setCurrentView] = useState<ViewState>('INPUT');
   const [availableChoices, setAvailableChoices] = useState<any[]>([]);
   const [pendingConfig, setPendingConfig] = useState({ query: '', chainId: '', chainMode: 'all' });
-
   const [structureData, setStructureData] = useState<any>(null);
+  const [currentLoadingInfo, setCurrentLoadingInfo] = useState({ proteinId: '', chainId: '' });
+  const [errorConfig, setErrorConfig] = useState<ErrorState | null>(null);
   //test
   const pdbData2=`HEADER    LIGASE                                  12-JUL-00   1GG4              
 TITLE     CRYSTAL STRUCTURE OF ESCHERICHIA COLI UDPMURNAC-TRIPEPTIDE D-ALANYL-D-
@@ -7571,34 +7576,71 @@ CONECT 6421 6415
 MASTER      293    0   18   36   46    0    0    6 6791    2  178   70          
 END                                                                             `
   
-  useEffect(() => {
-    setStructureData({
-    protein_id: '2zzk',
-    id_type: 'pdb',
-    pdb_found: pdbData2,
-    chain_id: 'A',
-    length: 536,
-    sequence:"MASVHGTTYELLRRQGIDTVFGNPGSNELPFLKDFPEDFRYILALQEACVVGIADGYAQASRKPAFINLHSAAGTGNAMGALSNAWNSHSPLIVTAGQQTRAMIGVEALLTNVDAANLPRPLVKWSYEPASAAEVPHAMSRAIHMASMAPQGPVYLSVPYDDWDKDADPQSHHLFDRHVSSSVRLNDQDLDILVKALNSASNPAIVLGPDVDAANANADCVMLAERLKAPVWVAPSAPRCPFPTRHPCFRGLMPAGIAAISQLLEGHDVVLVIGAPVFRYHQYDPGQYLKPGTRLISVTCDPLEAARAPMGDAIVADIGAMASALANLVEESSRQLPTAAPEPAKVDQDAGRLHPETVFDTLNDMAPENAIYLNESTSTTAQMWQRLNMRNPGSYYFCAAGGTGFALPAAIGVQLAEPERQVIAVIGDGSANYSISALWTAAQYNIPTIFVIMNNGTYGALRWFAGVLEAENVPGLDVPGIDFRALAKGYGVQALKADNLEQLKGSLQEALSAKGPVLIEVSTVSPVKRSHHHHHH",
-    repeats: [
-  { start: 80, end: 165, desc: "Repeat Unit 1", hex: "#ff00ff", rgb: { r: 255, g: 0, b: 255 } },
-  { start: 167, end: 252, desc: "Repeat Unit 2", hex: "#00c8ff", rgb: { r: 0, g: 200, b: 255 } },
-  { start: 254, end: 339, desc: "Repeat Unit 3", hex: "#ffa500", rgb: { r: 255, g: 165, b: 0 } }
-]
-  });
-  }, []);
+//   useEffect(() => {
+//     setStructureData({
+//     protein_id: '2zzk',
+//     id_type: 'pdb',
+//     pdb_found: pdbData2,
+//     chain_id: 'A',
+//     length: 536,
+//     sequence:"MASVHGTTYELLRRQGIDTVFGNPGSNELPFLKDFPEDFRYILALQEACVVGIADGYAQASRKPAFINLHSAAGTGNAMGALSNAWNSHSPLIVTAGQQTRAMIGVEALLTNVDAANLPRPLVKWSYEPASAAEVPHAMSRAIHMASMAPQGPVYLSVPYDDWDKDADPQSHHLFDRHVSSSVRLNDQDLDILVKALNSASNPAIVLGPDVDAANANADCVMLAERLKAPVWVAPSAPRCPFPTRHPCFRGLMPAGIAAISQLLEGHDVVLVIGAPVFRYHQYDPGQYLKPGTRLISVTCDPLEAARAPMGDAIVADIGAMASALANLVEESSRQLPTAAPEPAKVDQDAGRLHPETVFDTLNDMAPENAIYLNESTSTTAQMWQRLNMRNPGSYYFCAAGGTGFALPAAIGVQLAEPERQVIAVIGDGSANYSISALWTAAQYNIPTIFVIMNNGTYGALRWFAGVLEAENVPGLDVPGIDFRALAKGYGVQALKADNLEQLKGSLQEALSAKGPVLIEVSTVSPVKRSHHHHHH",
+//     repeats: [
+//   { start: 80, end: 165, desc: "Repeat Unit 1", hex: "#ff00ff", rgb: { r: 255, g: 0, b: 255 } },
+//   { start: 167, end: 252, desc: "Repeat Unit 2", hex: "#00c8ff", rgb: { r: 0, g: 200, b: 255 } },
+//   { start: 254, end: 339, desc: "Repeat Unit 3", hex: "#ffa500", rgb: { r: 255, g: 165, b: 0 } }
+// ]
+//   });
+//   }, []);
+
+  const handleStartLoading = (proteinId: string, chainId: string) => {
+    setCurrentLoadingInfo({ proteinId, chainId });
+    setCurrentView('LOADING');
+  };
+
   const handleMultipleChoices = (options: any[], query: string, chainId: string, chainMode: string) => {
     setAvailableChoices(options);
     setPendingConfig({ query, chainId, chainMode });
     setCurrentView('CHOICES');
   };
 
-  const handleSuccess = (data: any) => {
-    setStructureData(data);
+  const handleSuccess = (result: any) => {
+    const hasRepeats = result.chain_id === 'ALL' 
+      ? Object.values(result.chains_data || {}).some((res: any) => res && res.length > 0)
+      : (result.repeats && result.repeats.length > 0);
+
+    if (!hasRepeats) {
+      setErrorConfig({
+        type: 'NO_REPEATS',
+        message: `The microservice successfully processed protein ${result.protein_id.toUpperCase()}, but the TAPO algorithm did not detect significant tandem repeats in the selected chain.`
+      });
+      setCurrentView('ERROR_VIEW');
+      return;
+    }
+
+    setStructureData(result);
     setCurrentView('STRUCTURE');
   };
 
+  const handleProcessError = (err: any) => {
+    console.error(err);
+    if (err.message?.includes('404')) {
+      setErrorConfig({
+        type: 'NOT_FOUND',
+        message: "Could not locate or download the structural model. Please ensure you entered a valid PDB or UniProt ID, or try uploading a local .pdb file."
+      });
+    } else {
+      setErrorConfig({
+        type: 'SERVER_ERROR',
+        message: `An issue occurred while communicating with the microservice: ${err.message || 'Timeout'}. Please verify that the backend and Docker are running.`
+      });
+    }
+    setCurrentView('ERROR_VIEW');
+  };
+
+  // For multiple models found in alphafold
   const handleSelectChoice = async (selectedId: string) => {
     try {
+      handleStartLoading(selectedId, pendingConfig.chainId || 'A');
       setCurrentView('LOADING');
       const baseUrl = 'http://localhost:8000';
       
@@ -7616,10 +7658,11 @@ END                                                                             
       const result = await response.json();
       if (result.status === 'success') {
         handleSuccess(result);
+      } else {
+        throw new Error('Server returned an unsuccessful status state');
       }
     } catch (error) {
-      console.error('Error selecting choice:', error);
-      setCurrentView('CHOICES'); // Return to choices if it fails
+      handleProcessError(error);
     }
   };
 
@@ -7650,10 +7693,14 @@ END                                                                             
 
       <main style={{ flex: 1, padding: '10px 30px 30px' }}>
         {currentView === 'INPUT' && (
-          <InputView 
-          onSubmitMock={() =>setCurrentView('STRUCTURE')}
+         <InputView 
             onSubmitSuccess={handleSuccess} 
             onSubmitMultipleChoices={handleMultipleChoices} 
+            onLoadingStart={handleStartLoading}
+            onLoadingError={() => {
+              setErrorConfig({ type: 'SERVER_ERROR', message: 'Connection to the processing server failed.' });
+              setCurrentView('ERROR_VIEW');
+            }}
           />
         )}
         
@@ -7666,7 +7713,7 @@ END                                                                             
           />
         )}
         
-        {currentView === 'STRUCTURE' && (
+        {currentView === 'STRUCTURE' && structureData &&(
           <StructureView 
             proteinId={structureData.protein_id}
             proteinIdType={structureData.id_type}
@@ -7678,21 +7725,47 @@ END                                                                             
           />
         )}
         {currentView === 'LOADING' && (
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            minHeight: '400px',
-            textAlign: 'center'
+           <LoadingView 
+             proteinId={currentLoadingInfo.proteinId} 
+             chainId={currentLoadingInfo.chainId} 
+           />
+        )}
+        
+        {currentView === 'ERROR_VIEW' && errorConfig && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            minHeight: '400px', textAlign: 'center'
           }}>
-            <h2 style={{ fontSize: '24px', color: '#111827' }}>
-              Processing Structure...
+            <div style={{ marginBottom: '16px', color: errorConfig.type === 'NO_REPEATS' ? '#0b78e3' : '#ef4444' }}>
+              {errorConfig.type === 'NO_REPEATS' ? (
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+              ) : (
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              )}
+            </div>
+            <h2 style={{ fontSize: '24px', color: '#111827', fontWeight: 600, marginBottom: '12px' }}>
+              {errorConfig.type === 'NO_REPEATS' ? 'Analysis Completed' : 'Analysis Failed'}
             </h2>
-            <p style={{ fontSize: '18px', color: '#4b5563' }}>
-              Analyzing tandem repeats. Please wait.
+            <p style={{ color: '#4b5563', fontSize: '16px', maxWidth: '500px', lineHeight: '1.6', marginBottom: '24px' }}>
+              {errorConfig.message}
             </p>
-            <div className="loader"></div>
+            <button 
+              onClick={() => setCurrentView('INPUT')}
+              style={{
+                padding: '10px 20px', backgroundColor: '#0b78e3', color: '#ffffff',
+                border: 'none', borderRadius: '6px', fontSize: '15px', fontWeight: 500, cursor: 'pointer'
+              }}
+            >
+              Return to Search
+            </button>
           </div>
         )}
       </main>

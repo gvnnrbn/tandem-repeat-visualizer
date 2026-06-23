@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FC, FormEvent } from 'react';
 
 interface InputViewProps {
-  onSubmitMock?: () => void;
   onSubmitSuccess?: (data: any) => void;
   onSubmitMultipleChoices: (options: any[], originalQuery: string, chainId: string, chainMode: string) => void;
+  onLoadingStart: (proteinId: string, chainId: string) => void;  
+  onLoadingError: (err: any) => void;
 }
-
-const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmitMultipleChoices }) => {
+const InputView: FC<InputViewProps> = ({ onSubmitSuccess, onSubmitMultipleChoices, onLoadingStart, onLoadingError }) => {
   const allowedFileExtensions = ['.pdb', '.cif', '.fasta'];
   const [proteinStructure, setProteinStructure] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -55,17 +55,13 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (onSubmitMock) {
-      onSubmitMock();
-      return;
-    }
-
     if (!onSubmitSuccess || !onSubmitMultipleChoices) {
       return;
     }
-
     setIsLoading(true);
     setError(null);
+    // start loading screen
+    if (onLoadingStart) onLoadingStart(proteinStructure, chainId); 
 
     try {
       let response;
@@ -111,6 +107,8 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
 
     } catch (err: any) {
       console.error('Submission failed:', err);
+      if (onLoadingError) onLoadingError(err);
+
       if (err.message.includes('404')){
         setError('No matching structure found. Please check your input and try again.');
       } else {
@@ -259,7 +257,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
       </section>
 
       <section style={sectionStyle}>
-        <div style={labelStyle}>2. Select chain(s) to be searched:</div>
+        <div style={labelStyle}>2. Select chain to be searched:</div>
         <div style={radioGroupStyle}>
           {/* <label style={radioRowStyle}>
             <input
@@ -272,8 +270,8 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
             />
             <span>All chains</span>
           </label> */}
-          <label style={radioRowStyle}>
-            <input
+          {/* <label style={radioRowStyle}> */}
+            {/* <input
               type="radio"
               name="chain-mode"
               checked={chainMode === 'single'}
@@ -281,17 +279,17 @@ const InputView: FC<InputViewProps> = ({ onSubmitMock, onSubmitSuccess, onSubmit
               style={{ transform: 'scale(1.35)' }}
               disabled={isLoading}
             />
-            <span>Single chain ID:</span>
+            <span>Single chain ID:</span> */}
             <input
               type="text"
               style={shortInputStyle}
               value={chainId}
               onChange={handleChainIdChange}
               maxLength={1}
-              disabled={chainMode !== 'single' || isLoading}
+              disabled={/*chainMode !== 'single' || */isLoading}
               aria-label="Single chain ID"
             />
-          </label>
+          {/* </label> */}
         </div>
       </section>
 
