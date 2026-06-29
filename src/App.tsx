@@ -15,20 +15,23 @@ interface ErrorState {
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('INPUT');
-  const [availableChoices, setAvailableChoices] = useState<any[]>([]);
-  const [pendingConfig, setPendingConfig] = useState({ query: '', chainId: '', chainMode: 'all' });
+  // const [availableChoices, setAvailableChoices] = useState<any[]>([]);
+  // const [pendingConfig, setPendingConfig] = useState({ query: '' });
+  const [multipleChoicesData, setMultipleChoicesData] = useState<any>(null);
+  const [originalQuery, setOriginalQuery] = useState<string>('');
+
   const [structureData, setStructureData] = useState<any>(null);
-  const [currentLoadingInfo, setCurrentLoadingInfo] = useState({ proteinId: '', chainId: '' });
+  const [currentLoadingInfo, setCurrentLoadingInfo] = useState({ proteinId: '' });
   const [errorConfig, setErrorConfig] = useState<ErrorState | null>(null);
 
-  const handleStartLoading = (proteinId: string, chainId: string) => {
-    setCurrentLoadingInfo({ proteinId, chainId });
+  const handleStartLoading = (proteinId: string) => {
+    setCurrentLoadingInfo({ proteinId });
     setCurrentView('LOADING');
   };
 
-  const handleMultipleChoices = (options: any[], query: string, chainId: string, chainMode: string) => {
-    setAvailableChoices(options);
-    setPendingConfig({ query, chainId, chainMode });
+  const handleMultipleChoices = (data: any, query: string) => {
+    setMultipleChoicesData(data);
+    setOriginalQuery(query);
     setCurrentView('CHOICES');
   };
 
@@ -59,47 +62,46 @@ export default function App() {
     setCurrentView('ERROR_VIEW');
   };
 
-  const handleSelectChoice = async (selectedId: string) => {
+  const handleSelectChoice = async (selectedOption: any) => {
+    setCurrentView('LOADING');
+    setCurrentLoadingInfo({ proteinId: multipleChoicesData.protein_id });
+    setErrorConfig(null);
+    
     try {
-      handleStartLoading(selectedId, pendingConfig.chainId || 'A');
-      setCurrentView('LOADING');
-      const baseUrl = 'http://127.0.0.1:8000';
-      
-      const formData = new FormData();
-      formData.append('text_query', selectedId);
-      formData.append('chain_id', pendingConfig.chainId || 'A'); 
+      // Build payload matching our new DetectRepeatsRequest Pydantic schema
+      const payload = {
+        protein_id: multipleChoicesData.protein_id,
+        id_type: multipleChoicesData.id_type,
+        input_format: multipleChoicesData.input_format,
+        choice_type: multipleChoicesData.choice_type,
+        chain_id: selectedOption.chain_id,
+        sequence: selectedOption.sequence,
+        length: selectedOption.length,
+        pdb_found: multipleChoicesData.pdb_found || null,
+        pdb_url: selectedOption.pdbUrl || null
+      };
 
-      let response;
-      try {
-        response = await fetch(`${baseUrl}/api/prepare-structure/text`, {
-          method: 'POST',
-          body: formData,
-        });
-      } catch (networkError) {
-        throw new Error('Failed to connect to the server. Please verify that the backend is running.');
-      }
+      const response = await fetch('http://127.0.0.1:8000/api/detect-repeats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (jsonError) {
-        if (!response.ok) {
-          throw new Error(response.status === 500 ? 'Internal Server Error (500). Please verify that the backend and Docker are running.' : `HTTP Error: ${response.status}`);
-        }
-        throw new Error('Received invalid JSON from server.');
-      }
+      const result = await response.json();
 
       if (!response.ok || result.status === 'error') {
-        throw new Error(result.message || (response.status === 500 ? 'Internal Server Error. Please verify that the backend and Docker are running.' : `Server error: ${response.status}`));
+        throw new Error(result.message || 'Error processing selection.');
       }
 
-      if (result.status === 'success') {
-        handleSuccess(result);
-      } else {
-        throw new Error('Server returned an unknown status state.');
-      }
-    } catch (error) {
-      handleProcessError(error);
+      handleSuccess(result);
+
+    } catch (err: any) {
+      console.error('Error selecting choice:', err);
+      setErrorConfig({
+        type: 'SERVER_ERROR',
+        message: err.message || 'Failed to analyze selected structure.'
+      });
+      setCurrentView('ERROR_VIEW');
     }
   };
 
@@ -136,12 +138,13 @@ export default function App() {
           />
         )}
         
-        {currentView === 'CHOICES' && (
+        {currentView === 'CHOICES' && multipleChoicesData && (
           <StructureSelectionView
-            options={availableChoices}
-            originalQuery={pendingConfig.query}
+            choiceType={multipleChoicesData.choice_type}
+            options={multipleChoicesData.options}
+            originalQuery={originalQuery}
             onSelect={handleSelectChoice}
-            onGoBack={() => setCurrentView('INPUT')}
+            onCancel={() => setCurrentView('INPUT')}
           />
         )}
         
@@ -159,7 +162,7 @@ export default function App() {
         {currentView === 'LOADING' && (
            <LoadingView 
              proteinId={currentLoadingInfo.proteinId} 
-             chainId={currentLoadingInfo.chainId} 
+             chainId={"A"} 
            />
         )}
         
