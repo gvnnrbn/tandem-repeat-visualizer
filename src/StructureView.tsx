@@ -44,7 +44,7 @@ const StructureView: React.FC<StructureViewProps> = ({
   
   // Toggle Rock animation button
   const toggleRock = () => {
-    const molstar = pluginInstance.current?.plugin; // Access native Molstar API
+    const molstar = pluginInstance.current?.plugin; 
     if (!molstar) return;
 
     if (isRocking) {
@@ -106,9 +106,9 @@ const StructureView: React.FC<StructureViewProps> = ({
   // =================================================================
   // EFFECT 1: Molstar 3D rendering from PDB file string
   // =================================================================
+  console.log("proteinId:", proteinId); 
   useEffect(() => {
     if (!molstarRef.current || pluginInstance.current || !pdbStructure) return;
-    
     const initMolstar = async () => {
       const viewer = new PDBeMolstarPlugin();
       
@@ -267,7 +267,7 @@ const StructureView: React.FC<StructureViewProps> = ({
         let proteinData;
         if (proteinIdType === 'uniprot') {
           // All isoforms for UniProt accession
-          siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/all_isoforms/${proteinId}`);
+          siftsRes = await fetch(`https://www.ebi.ac.uk/pdbe/api/v2/mappings/${proteinId}`);
           const siftsJson = await siftsRes.json();
           const rootData = Object.values(siftsJson)[0] as any;
           if (rootData && rootData.PDB) {
@@ -276,13 +276,13 @@ const StructureView: React.FC<StructureViewProps> = ({
           }
           
           // Coverage not available for UniProt Accesions
-          const emptyCoverage = [{
-            x: 1,
-            y: length,
-            description: "Coverage not available for this UniProt entry",
-            color: "#bdc3c7"
-          }];
-          setCoverageFeatures(emptyCoverage);
+          // const emptyCoverage = [{
+          //   x: 1,
+          //   y: length,
+          //   description: "Coverage not available for this UniProt entry",
+          //   color: "#bdc3c7"
+          // }];
+          // setCoverageFeatures(emptyCoverage);
           
           
         }
@@ -500,18 +500,18 @@ const StructureView: React.FC<StructureViewProps> = ({
        }}>
         <div style={{ width: '100%' }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
-            <h3 style={{ marginBottom: '5px', fontSize:'20px'}}>
+            <h3 style={{ marginBottom: '5px', fontSize:'1.7rem'}}>
               Structure: {uniprotInfo.name || proteinId}
             </h3>
             {/* ESCENARIO 1: PDB ID */}
             {proteinIdType === 'pdb' && (
-              <p style={{ fontSize: '0.9rem', color: '#666', marginTop: 0 }}>
-                PDB: <a href={`https://www.rcsb.org/structure/${proteinId}`} target="_blank" rel="noreferrer">{proteinId}</a>{' | '}
-                UniProt: 
-                <a href={`https://www.uniprot.org/uniprotkb/${uniprotInfo.uniprotId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}
-                >
-                  {uniprotInfo.uniprotId}
-                </a>
+              <p style={{ fontSize: '1rem', color: '#666', marginTop: 0 }}>
+                PDB: <strong><a href={`https://www.rcsb.org/structure/${proteinId}`} target="_blank" rel="noreferrer">
+                  {proteinId}</a></strong>{' | '}
+                UniProt:<a href={`https://www.uniprot.org/uniprotkb/${uniprotInfo?.uniprotId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}>
+                  {uniprotInfo?.uniprotId}</a>{' | '}
+                AlphaFold: <a href={`https://alphafold.ebi.ac.uk/search/text/${uniprotInfo?.uniprotId}`} target="_blank" rel="noreferrer">
+                  {uniprotInfo?.uniprotId}</a>
               </p>
             )}
 
@@ -530,30 +530,33 @@ const StructureView: React.FC<StructureViewProps> = ({
                 UniProt:<strong><a href={`https://www.uniprot.org/uniprotkb/${proteinId}`} target="_blank" rel="noreferrer" style={{ marginLeft: '5px' }}>
                     {proteinId}
                   </a></strong>
+                {' | '}
+                AlphaFold: <a href={`https://alphafold.ebi.ac.uk/search/text/${proteinId}`} target="_blank" rel="noreferrer">
+                  {proteinId}</a>
               </p>
             )}
 
             {/* --- PFAM FAMILY --- */}
             {proteinFamilies.length > 0 && (
-              <div style={{ margin: '15px 0', padding: '10px', backgroundColor: '#B3C7F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
-                <strong style={{ fontSize: '0.85rem', color: '#0550B9', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>Protein Family / Domains</strong>
-                <p style={{ fontSize: '0.95rem', color: '#0550B9', margin: '5px 0 0 0', fontWeight: 500 }}>
+              <div style={{ margin: '15px 0', padding: '1.5rem 1rem', backgroundColor: '#B3C7F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
+                <strong style={{ fontSize: '1rem', color: '#0550B9', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>Protein Family / Domains</strong>
+                <p style={{ fontSize: '1rem', color: '#0550B9', margin: '5px 0 0 0', fontWeight: 500 }}>
                   {proteinFamilies.join(' | ')}
                 </p>
               </div>
             )}
             {/* --- PUBLICATIONS --- */}
             {
-              <div style={{ margin: '15px 0', padding: '10px', backgroundColor: '#F2F2F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
-                <strong style={{ fontSize: '0.85rem', color: '#535353', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
+              <div style={{ margin: '15px 0', padding: '1.5rem 1rem', backgroundColor: '#F2F2F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
+                <strong style={{ fontSize: '1rem', color: '#535353', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
                   Literature Mentions
                 </strong>
-                {publications.length > 0 ? <p style={{ fontSize: '0.80rem', color: '#535353', marginBottom: '8px' }}>
+                {publications.length > 0 ? <p style={{ fontSize: '1rem', color: '#535353', marginBottom: '8px' }}>
                   Latest 3 articles citing the primary publication (Source: Europe PMC)
                 </p> : <p>
                   No publications found.
                 </p>}
-                {publications.length > 0 &&(<div style={{ fontSize: '0.80rem', color: '#535353', fontWeight: 500, marginLeft: '100px' }}>
+                {publications.length > 0 &&(<div style={{ fontSize: '0.9rem', color: '#535353', fontWeight: 500, marginLeft: '100px' }}>
                   {publications.map((pub) => (
                     <p key={pub.pubmed_id} style={{ margin: '2px 0', textAlign: 'left' }}>
                       • {pub.year} | Journal: {pub.journal}{' | '}
@@ -580,7 +583,7 @@ const StructureView: React.FC<StructureViewProps> = ({
       </div>
     </div>
     <div style={{ border: '1px solid #ccc', padding: '0px 10px', height: '100%', borderRadius: '8px', background: 'white',flex: 1, overflowY: 'auto' }}>
-      <h3 style={{ margin: 0 }}>Amino Acid Sequence ({proteinId}_A)</h3>
+      <h3 style={{ margin: 0 }}>Amino Acid Sequence ({proteinId}_{chainId})</h3>
       <div id="fv-container" ref={ftRef} />
     </div>
     </div>

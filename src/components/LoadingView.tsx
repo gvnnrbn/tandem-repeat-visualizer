@@ -7,11 +7,11 @@ interface LoadingViewProps {
 
 const LOADING_STEPS = [
   "Initializing structural analysis...",
-  "Evaluating geometric and topological features...",
-  "Computing intra-molecular distance matrices...",
-  "Scanning for structural tandem repeat signatures...",
-  "Aligning and refining repeat unit boundaries...",
-  "Optimizing multi-domain cluster assignments...",
+  "Validating input format and identifying source...",
+  "Searching 3D atomic coordinates...",
+  "Standardizing and parsing format...",
+  "Executing tandem repeat detection algorithm...",
+  "Parsing output and extracting repeat clusters...",
   "Finalizing results. Large or complex structures may require additional processing time..."
 ];
 
@@ -59,7 +59,7 @@ export const LoadingView: FC<LoadingViewProps> = ({ proteinId, chainId }) => {
       </div>
 
       <h2 style={{ fontSize: '22px', color: '#111827', fontWeight: 600, margin: '0 0 12px 0' }}>
-        Analyzing {displayId} {displayChain}
+        Analyzing protein
       </h2>
 
       <div style={{ width: '100%', maxWidth: '350px', height: '6px', backgroundColor: '#e5e7eb', borderRadius: '3px', marginBottom: '16px', overflow: 'hidden' }}>

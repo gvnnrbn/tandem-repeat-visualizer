@@ -63,7 +63,7 @@ export default function App() {
     try {
       handleStartLoading(selectedId, pendingConfig.chainId || 'A');
       setCurrentView('LOADING');
-      const baseUrl = 'http://0.0.0.0:8000';
+      const baseUrl = 'http://127.0.0.1:8000';
       
       const formData = new FormData();
       formData.append('text_query', selectedId);
@@ -184,7 +184,7 @@ export default function App() {
               )}
             </div>
             <h2 style={{ fontSize: '20px', color: '#111827', fontWeight: 600, marginBottom: '20px' }}>
-              {errorConfig.type === 'NO_REPEATS' ? 'Analysis Completed' : errorConfig.message}
+              {errorConfig.type === 'NO_REPEATS' ? `No tandem repeats found for this protein` : errorConfig.message}
             </h2>
             {/* <p style={{ color: '#4b5563', fontSize: '16px', maxWidth: '500px', lineHeight: '1.6', marginBottom: '24px' }}>
               {errorConfig.message}
