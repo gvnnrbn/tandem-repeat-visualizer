@@ -167,7 +167,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitSuccess, onSubmitMultipleChoice
   return (
     <form style={formStyle} onSubmit={handleSubmit}>
       <section style={sectionStyle}>
-        <div style={labelStyle}>1. Enter 4-character PDB ID, Accession ID, AlphaFold ID or Sequence:</div>
+        <div style={labelStyle}>Enter 4-character PDB ID, Accession ID, AlphaFold ID or Sequence:</div>
         <textarea
           style={textareaStyle}
           value={proteinStructure}
@@ -216,7 +216,7 @@ const InputView: FC<InputViewProps> = ({ onSubmitSuccess, onSubmitMultipleChoice
       )}
 
       {hasFileQuery && !hasAllowedFileExtension && (
-        <div style={warningStyle}>Only .pdb, .cif, or .fasta files can enable submit.</div>
+        <div style={warningStyle}>Only .pdb, .cif, or .fasta files are permitted.</div>
       )}
 
       {error && <div style={errorStyle}>{error}</div>}

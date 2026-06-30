@@ -547,7 +547,9 @@ const StructureView: React.FC<StructureViewProps> = ({
             )}
             {/* --- PUBLICATIONS --- */}
             {
-              <div style={{ margin: '15px 0', padding: '1.5rem 1rem', backgroundColor: '#F2F2F7', borderRadius: '6px', border: '1px solid #d9e2ec' }}>
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                    margin: '15px 0', padding: '1.5rem 1rem', backgroundColor: '#F2F2F7', 
+                    borderRadius: '6px', border: '1px solid #d9e2ec' }}>
                 <strong style={{ fontSize: '1rem', color: '#535353', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
                   Literature Mentions
                 </strong>
@@ -556,16 +558,16 @@ const StructureView: React.FC<StructureViewProps> = ({
                 </p> : <p>
                   No publications found.
                 </p>}
-                {publications.length > 0 &&(<div style={{ fontSize: '0.9rem', color: '#535353', fontWeight: 500, marginLeft: '100px' }}>
+                {publications.length > 0 &&(<div style={{ fontSize: '0.9rem', color: '#535353', fontWeight: 500}}>
                   {publications.map((pub) => (
                     <p key={pub.pubmed_id} style={{ margin: '2px 0', textAlign: 'left' }}>
-                      • {pub.year} | Journal: {pub.journal}{' | '}
+                      • {pub.year} | Journal: {pub.journal}{' | '}PubMed ID:{' '}
                       <a 
                         href={`https://pubmed.ncbi.nlm.nih.gov/${pub.pubmed_id}/`} 
                         target="_blank" 
                         rel="noreferrer"
                       >
-                        PubMed ID: {pub.pubmed_id}
+                        {pub.pubmed_id}
                       </a>
                     </p>
                   ))}

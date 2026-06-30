@@ -1,3 +1,4 @@
+import { UserGuideModal } from './components/UserGuideModal';
 import { useEffect, useState } from 'react';
 import InputView from './InputView';
 import StructureView from './StructureView';
@@ -15,8 +16,8 @@ interface ErrorState {
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('INPUT');
-  // const [availableChoices, setAvailableChoices] = useState<any[]>([]);
-  // const [pendingConfig, setPendingConfig] = useState({ query: '' });
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  
   const [multipleChoicesData, setMultipleChoicesData] = useState<any>(null);
   const [originalQuery, setOriginalQuery] = useState<string>('');
 
@@ -126,6 +127,10 @@ export default function App() {
       <div style={headerStyle}>
         <HomeButton setCurrentView={setCurrentView} />
         <h1 style={{flex:2}}>PROTEIN TANDEM REPEAT VISUALIZER</h1>
+        <button className="guide-button" onClick={() => setIsGuideOpen(true)}>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle cx="12" cy="12" r="10" stroke="#ffffff" stroke-width="1.5"></circle> <path d="M12 17V11" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"></path> <circle cx="1" cy="1" r="1" transform="matrix(1 0 0 -1 11 9)" fill="#ffffff"></circle> </g></svg>
+          <span> Guide</span>
+        </button>
       </div>
 
       <main style={{ flex: 1, padding: '10px 30px 30px' }}>
@@ -204,6 +209,10 @@ export default function App() {
           </div>
         )}
       </main>
+      <UserGuideModal 
+        isOpen={isGuideOpen} 
+        onClose={() => setIsGuideOpen(false)} 
+      />
     </div>
   );
 }
